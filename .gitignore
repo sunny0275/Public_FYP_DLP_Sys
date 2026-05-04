@@ -1,0 +1,25 @@
+node_modules/
+**/node_modules/
+
+backend/target/
+backend/*.jar
+
+frontend/dist/
+frontend/dist-electron/
+frontend/release/
+frontend/release-electron/
+
+*.exe
+*.dll
+*.asar
+*.blockmap
+*.log
+*.pid
+uploads/
+
+# Sensitive data
+.env
+secrets/
+
+# Editor settings
+.vscode/

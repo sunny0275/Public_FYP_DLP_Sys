@@ -1,0 +1,50 @@
+{
+  "jobs": [
+    {
+      "tuningJobResourceName": "projects/resonant-amulet-491303-n0/locations/us-central1/tuningJobs/6123506260282179584",
+      "displayName": "LLM_Classification_v0",
+      "tunedModelDisplayName": "LLM_Classification_v0",
+      "state": "JOB_STATE_SUCCEEDED",
+      "tunedModelName": "projects/resonant-amulet-491303-n0/locations/us-central1/models/4245380421098930176",
+      "deployedEndpointResourceName": "projects/resonant-amulet-491303-n0/locations/us-central1/endpoints/6123506260282179584",
+      "endpointDisplayName": "dlp-classification-endpoint",
+      "deployedModelDisplayName": "LLM_Classification_v0",
+      "deployedModelId": "6123506260282179584",
+      "autoDeploy": true,
+      "sourceModel": "gemini-2.5-flash",
+      "sourceModelStrategy": "DEFAULT_BASE_MODEL",
+      "tuningMethod": "SDK_SFT_TRAIN",
+      "continualTraining": false,
+      "trainCount": 140,
+      "validationCount": 60,
+      "projectId": "resonant-amulet-491303-n0",
+      "location": "us-central1",
+      "createdAt": "2026-03-31T04:16:16.694322Z",
+      "updatedAt": "2026-03-31T04:16:32.124629Z",
+      "endTime": "2026-03-31T04:16:32.124629Z"
+    },
+    {
+      "tuningJobResourceName": "projects/resonant-amulet-491303-n0/locations/us-central1/tuningJobs/7479652698074120192",
+      "displayName": "LLM_UEBA_v0",
+      "tunedModelDisplayName": "LLM_UEBA_v0",
+      "state": "JOB_STATE_SUCCEEDED",
+      "tunedModelName": "projects/resonant-amulet-491303-n0/locations/us-central1/models/2887545133446725632",
+      "deployedEndpointResourceName": "projects/resonant-amulet-491303-n0/locations/us-central1/endpoints/7479652698074120192",
+      "endpointDisplayName": "dlp-ueba-endpoint",
+      "deployedModelDisplayName": "LLM_UEBA_v0",
+      "deployedModelId": "7479652698074120192",
+      "autoDeploy": true,
+      "sourceModel": "gemini-2.5-flash",
+      "sourceModelStrategy": "DEFAULT_BASE_MODEL",
+      "tuningMethod": "SDK_SFT_TRAIN",
+      "continualTraining": false,
+      "trainCount": 140,
+      "validationCount": 60,
+      "projectId": "resonant-amulet-491303-n0",
+      "location": "us-central1",
+      "createdAt": "2026-03-31T04:15:43.108425Z",
+      "updatedAt": "2026-03-31T04:15:56.287546Z",
+      "endTime": "2026-03-31T04:15:56.287546Z"
+    }
+  ]
+}

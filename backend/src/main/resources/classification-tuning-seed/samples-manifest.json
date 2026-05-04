@@ -1,0 +1,98 @@
+[
+  {
+    "file": "01_public_community_event_notice.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "02_public_product_launch_update.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "03_public_holiday_service_hours.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "04_public_public_partnership_news.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "05_public_open_house_invitation.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "06_public_public_webinar_summary.md",
+    "expectedLevel": "PUBLIC"
+  },
+  {
+    "file": "07_internal_sprint_review_minutes.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "08_internal_oncall_shift_plan.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "09_internal_internal_it_notice.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "10_internal_team_onboarding_notes.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "11_internal_staff_training_plan.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "12_internal_internal_faq_update.md",
+    "expectedLevel": "INTERNAL"
+  },
+  {
+    "file": "13_confidential_vendor_pricing_assessment.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "14_confidential_client_solution_draft.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "15_confidential_roadmap_risk_review.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "16_confidential_budget_forecast_sheet.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "17_confidential_security_architecture_memo.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "18_confidential_commercial_strategy_notes.md",
+    "expectedLevel": "CONFIDENTIAL"
+  },
+  {
+    "file": "19_strictly_confidential_executive_compensation_extract.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  },
+  {
+    "file": "20_strictly_confidential_regulatory_case_response.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  },
+  {
+    "file": "21_strictly_confidential_payroll_exception_report.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  },
+  {
+    "file": "22_strictly_confidential_mna_due_diligence_notes.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  },
+  {
+    "file": "23_strictly_confidential_litigation_prep_brief.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  },
+  {
+    "file": "24_strictly_confidential_key_management_incident.md",
+    "expectedLevel": "STRICTLY_CONFIDENTIAL"
+  }
+]

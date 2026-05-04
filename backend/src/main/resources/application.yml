@@ -1,0 +1,371 @@
+spring:
+  application:
+    name: dlp-platform
+
+  sql:
+    init:
+      mode: always
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dlp_db}
+    username: ${DB_USER:dlp_user}
+    password: ${DB_PASSWORD:dlp_password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  security:
+    filter:
+      order: 5
+
+  servlet:
+    multipart:
+      enabled: true
+      # File upload limit: 25MB per file (buffer for highly compressed files after 2 gzip rounds)
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Internal API key for callbacks from Python tuning service
+# Generate a secure random key and share with the tuning service
+internal:
+  api-key: ${INTERNAL_API_KEY:}
+  error:
+    include-message: always
+    include-stacktrace: never
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET}  # REQUIRED: Must be set via environment variable (minimum 64 characters)
+  access-token-expiration: 36000000    # 10 hours (8am-6pm working hours)
+  refresh-token-expiration: 604800000  # 7 days
+
+# Security Configuration
+security:
+  password:
+    min-length: 12
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special: true
+    expiry-days: 14
+    reminder-days: 7
+    history-count: 5  # Prevent reuse of last 5 passwords
+
+  account:
+    max-login-attempts: 5
+    lockout-duration-minutes: 5   # Account lockout duration for both password and MFA failures
+    brute-force:
+      threshold: 3               # Number of unique IPs attempting failed logins before account disable
+      window-hours: 1             # Time window for tracking
+      test-mode: false           # Set to true for localhost testing (simulates multi-IP attack)
+  
+  ip:
+    max-attempts: 5  # Maximum failed login attempts before freeze (aligned with account lockout)
+    freeze-duration-minutes: 5  # Freeze duration in minutes after max attempts
+
+  session:
+    timeout-minutes: 30
+
+  mfa:
+    issuer: DLP-Platform
+    qr-code-width: 200
+    qr-code-height: 200
+
+  virus-scan:
+    enabled: ${DLP_VIRUS_SCAN_ENABLED:true}
+    clamav:
+      enabled: ${DLP_VIRUS_SCAN_CLAMAV_ENABLED:false}
+      host: ${DLP_VIRUS_SCAN_CLAMAV_HOST:clamav}
+      port: ${DLP_VIRUS_SCAN_CLAMAV_PORT:3310}
+      timeout-ms: ${DLP_VIRUS_SCAN_CLAMAV_TIMEOUT_MS:10000}
+
+  admin:
+    password: ${ADMIN_PASSWORD:Opgg-58147321}
+
+# Rate Limiting
+rate-limit:
+  login:
+    requests: 5
+    window-seconds: 300  # 5 minutes
+
+# File Storage Configuration
+file:
+  storage:
+    # Default (local dev): store uploads under repo root: ../uploads (when running from backend/)
+    # Docker override: set FILE_STORAGE_LOCATION=/app/uploads (see docker-compose.yml) so uploads persist via volume mount.
+    location: ${FILE_STORAGE_LOCATION:../uploads}
+    max-size: 524288000  # 500MB in bytes
+
+# OCR (Tesseract) - optional, for image/scanned document text extraction
+ocr:
+  tesseract:
+    enabled: ${OCR_TESSERACT_ENABLED:true}
+    # Path to tessdata folder (e.g. C:/Program Files/Tesseract-OCR/tessdata or /usr/share/tesseract-ocr/4.00/tessdata)
+    # Leave empty to use default (Tesseract installation dir)
+    datapath: ${OCR_TESSERACT_DATAPATH:}
+    # Language(s), e.g. eng, chi_sim, eng+chi_sim
+    language: ${OCR_TESSERACT_LANGUAGE:eng}
+
+# Blind Watermark (s2c-blind-watermark) Configuration
+# Integrates invisible BPSK watermark to prevent Adobe Photoshop content-aware fill removal
+blind-watermark:
+  enabled: ${BLIND_WATERMARK_ENABLED:true}
+  # Path to s2c-blind-watermark scripts directory
+  script-dir: ${BLIND_WATERMARK_SCRIPT_DIR:./backend/s2c-blind-watermark}
+  # Python executable (python or python3)
+  python-exe: ${BLIND_WATERMARK_PYTHON_EXE:python}
+  # Watermark profile: "robust" (recommended for DLP - survives visible watermark interference)
+  profile: ${BLIND_WATERMARK_PROFILE:robust}
+  # Tiled diagonal text overlay (like visible watermark) - currently unused, visible watermark applied separately
+  tiled-text: ${BLIND_WATERMARK_TILED_TEXT:}
+  # Luminance modulation strength (robust=35.0 survives visible watermark interference)
+  delta-y: ${BLIND_WATERMARK_DELTA_Y:35.0}
+  # Corner mark strength (robust=40.0)
+  mark-delta-y: ${BLIND_WATERMARK_MARK_DELTA_Y:40.0}
+  # Process timeout in seconds
+  timeout-seconds: ${BLIND_WATERMARK_TIMEOUT:30}
+
+# Document Classification Configuration
+classification:
+  confidence:
+    threshold: 0.7  # Minimum confidence for auto-classification
+  llm:
+    enabled: true   # Enable/disable LLM classification
+    timeout: 30000  # LLM API timeout in milliseconds (30 seconds)
+
+vertex:
+  # Vertex AI Gemini (OAuth/ADC) configuration
+  project: ${GOOGLE_CLOUD_PROJECT:resonant-amulet-491303-n0}
+  # IMPORTANT: Vertex AI endpoints are regional (e.g. us-central1). "global" will 404 for aiplatform.googleapis.com.
+  location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+  # Optional tuned endpoint id. When set, inference calls endpoint generateContent instead of publisher model path.
+  endpoint-id: ${VERTEX_ENDPOINT_ID:6123506260282179584}
+  model: ${VERTEX_MODEL:gemini-2.5-flash}
+  # Optional API key mode (Express mode endpoint). If set, backend uses API key call path.
+  # Prefer secrets manager in production.
+  api-key: ${VERTEX_API_KEY:${API_KEY:}}
+  # Optional: auto-upload tuning dataset to GCS for Vertex AI supervised tuning
+  tuning:
+    gcs-bucket: ${VERTEX_TUNING_GCS_BUCKET:resonant-amulet-491303-n0-tuning}   # e.g. my-project-tuning or gs://my-bucket
+    object-prefix: ${VERTEX_TUNING_OBJECT_PREFIX:tuning/classification/}  # path prefix inside bucket
+    min-examples: ${VERTEX_TUNING_MIN_EXAMPLES:100}
+    project-id: ${VERTEX_TUNING_PROJECT_ID:resonant-amulet-491303-n0}
+    location: ${VERTEX_TUNING_LOCATION:${GOOGLE_CLOUD_LOCATION:us-central1}}
+    # Initial/base model for tuning requests. When continual-training=true, service will prefer last successful tuned model.
+    base-model: ${VERTEX_TUNING_BASE_MODEL:${VERTEX_MODEL:gemini-2.5-flash}}
+    continual-training: ${VERTEX_TUNING_CONTINUAL_TRAINING:true}
+    # Ask tuning service to auto deploy tuned model to endpoint when job reaches SUCCEEDED.
+    auto-deploy: ${VERTEX_TUNING_AUTO_DEPLOY:true}
+    endpoint-display-name: ${VERTEX_TUNING_ENDPOINT_DISPLAY_NAME:dlp-classification-endpoint}
+    # Optional bootstrap tuning job id/name for continual tuning baseline (e.g. 3827813942416113664).
+    seed-job-id: ${VERTEX_TUNING_SEED_JOB_ID:}
+    tuning-service-url: ${VERTEX_TUNING_SERVICE_URL:https://llm-tuning-service-22852288638.us-central1.run.app/start}
+    # Callback URL for the Python service to notify backend when tuning completes and endpoint is deployed.
+    # Backend will refresh its endpoint cache without restart.
+    callback-url: ${VERTEX_TUNING_CALLBACK_URL:}
+    # Current version label for classification tuning jobs (LLM_Classification_v* naming).
+    # Managed automatically by ClassificationTuningAutoService; bump after each successful trigger.
+    tuned-model-version: ${VERTEX_TUNING_TUNED_MODEL_VERSION:v0}
+    # Path to the Python tuning service state file (tuning-jobs-state.json) for discovering prior jobs.
+    python-state-file: ${VERTEX_TUNING_PYTHON_STATE_FILE:../tuning-service-python/tuning-jobs-state.json}
+    # Cron for unattended auto-trigger: export + call tuning service when enough examples (default daily 3am)
+    auto-trigger-cron: ${VERTEX_TUNING_AUTO_CRON:0 0 3 * * ?}
+
+# Digital Signature Configuration
+dlp:
+  audit:
+    # Keep immutable audit trail by default.
+    # Set true only for controlled maintenance/test environments.
+    allow-destructive-ops: ${DLP_AUDIT_ALLOW_DESTRUCTIVE_OPS:false}
+    chain:
+      guardian:
+        enabled: ${DLP_AUDIT_CHAIN_GUARDIAN_ENABLED:true}
+        # Real-time guard: verify chain every minute by default.
+        cron: ${DLP_AUDIT_CHAIN_GUARDIAN_CRON:0 */1 * * * ?}
+        # Only verify on-chain when blockchain is actually enabled. When blockchain is disabled,
+        # setting this to true generates false-positive MISSING_BLOCKCHAIN_TX alerts every minute.
+        verify-on-chain: ${DLP_AUDIT_CHAIN_GUARDIAN_VERIFY_ON_CHAIN:false}
+        max-violations: ${DLP_AUDIT_CHAIN_GUARDIAN_MAX_VIOLATIONS:200}
+        # Auto-run retry for recoverable blockchain anchor issues.
+        auto-retry-recoverable: ${DLP_AUDIT_CHAIN_GUARDIAN_AUTO_RETRY:true}
+        retry-limit: ${DLP_AUDIT_CHAIN_GUARDIAN_RETRY_LIMIT:100}
+  pki:
+    enabled: true
+    # Root CA for signature certificate chain (persist to volume in Docker)
+    ca:
+      subject: "CN=DLP Root CA,O=DLP Platform,C=HK"
+      key-path: /app/pki/ca.key.pem
+      cert-path: /app/pki/ca.crt.pem
+      valid-days: 3650
+    leaf:
+      valid-days: 365
+    ocsp:
+      responder-url: http://localhost:18080/api/pki/ocsp
+  timestamp:
+    enabled: true
+    tsa-url: https://freetsa.org/tsr  # Free TSA for development/testing
+    # Production: Use commercial TSA (DigiCert, Sectigo, etc.)
+    # tsa-url: https://timestamp.digicert.com
+    timeout: 10000  # Connection timeout in milliseconds
+
+  # Blockchain: when enabled, every audit log entry is anchored on-chain for an immutable audit log.
+  blockchain:
+    enabled: ${DLP_BLOCKCHAIN_ENABLED:false}
+    rpc-url: ${DLP_BLOCKCHAIN_RPC_URL:} # e.g. https://rpc-amoy.polygon.technology
+    # Production: Use mainnet or L2 (Polygon, Arbitrum)
+    chain-id: ${DLP_BLOCKCHAIN_CHAIN_ID:80002}  # Polygon Amoy chain id
+    private-key: ${DLP_BLOCKCHAIN_PRIVATE_KEY:} # NEVER commit; set via env/secret
+    # Optional overrides:
+    # gas-price-wei: 20000000000
+    # gas-limit: 50000
+    audit-anchor-retry:
+      enabled: ${DLP_BLOCKCHAIN_AUDIT_RETRY_ENABLED:true}
+      # Retry ANCHOR_FAILED audit logs periodically
+      cron: ${DLP_BLOCKCHAIN_AUDIT_RETRY_CRON:0 */5 * * * ?}
+      # Max rows retried per run
+      batch-size: ${DLP_BLOCKCHAIN_AUDIT_RETRY_BATCH_SIZE:100}
+    # Local Merkle chain configuration (for lightweight client verification)
+    merkle:
+      enabled: ${BLOCKCHAIN_MERKLE_ENABLED:true}
+      batch-size: ${BLOCKCHAIN_BATCH_SIZE:50}
+      batch-interval-ms: ${BLOCKCHAIN_BATCH_INTERVAL_MS:30000}
+    # Lightweight client (SPV-style) verification settings
+    lightweight-client:
+      enabled: ${BLOCKCHAIN_LIGHTWEIGHT_ENABLED:true}
+
+  signature:
+    # Secret used to encrypt per-user signing private keys at rest.
+    # Prefer setting DLP_SIGNATURE_KEY_SECRET explicitly (>= 32 chars).
+    # Fallback to JWT_SECRET so dev environments don't need a second secret.
+    key-encryption-secret: ${DLP_SIGNATURE_KEY_SECRET:${JWT_SECRET}}
+
+  # Phase 05: User encryption key management (self-destruct & recovery)
+  key-management:
+    enabled: ${DLP_KEY_MANAGEMENT_ENABLED:true}
+    # USER_SELF_CUSTODY: users manage their own recovery key (legacy/default)
+    # ADMIN_ESCROW: auto-provision on password setup/change; disable user self-service key setup/recovery
+    mode: ${DLP_KEY_MANAGEMENT_MODE:USER_SELF_CUSTODY}
+    pbkdf2-iterations: 100000
+    # Rotatable server-side key wrapping for operational private key material.
+    # keyring format: keyId=secret;keyId2=secret2
+    operational:
+      active-key-id: ${DLP_KEYMGMT_ACTIVE_KEY_ID:v1}
+      keyring: ${DLP_KEYMGMT_KEYRING:}
+      # Legacy single-secret fallback (backward compatibility)
+      master-secret: ${DLP_KEYMGMT_MASTER_SECRET:${DLP_SIGNATURE_KEY_SECRET:${JWT_SECRET}}}
+    anomaly:
+      revoke-threshold: 0.8   # Risk score 0-1; revoke key when >= this
+      failed-login-weight: 5  # After this many failed logins, login score = 1
+
+# Off-chain Storage (GCS) Configuration
+# For document storage beyond local filesystem
+gcs:
+  enabled: ${GCS_ENABLED:false}
+  document-bucket: ${GCS_DOCUMENT_BUCKET:}  # e.g. my-dlp-documents or gs://my-dlp-documents
+  # Credentials are picked up automatically from ADC (Application Default Credentials)
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.dlp.platform: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/dlp-platform.log
+    max-size: 10MB
+    max-history: 30
+
+# LLM-based UEBA (User and Entity Behavior Analytics) Configuration
+# Uses SEPARATE Vertex AI settings from document classification
+llm-ueba:
+  enabled: ${LLM_UEBA_ENABLED:true}
+  timeout: ${LLM_UEBA_TIMEOUT:15000}  # Timeout for LLM API calls in milliseconds
+  fallback-to-rule-based: ${LLM_UEBA_FALLBACK:true}  # Fallback to rule-based if LLM fails
+  confidence-threshold: ${LLM_UEBA_CONFIDENCE_THRESHOLD:0.7}  # Minimum confidence to apply penalty
+
+  # Bulk view detection: detect suspicious mass document browsing
+  bulk-view:
+    enabled: ${DLP_UEBA_BULK_VIEW_ENABLED:true}
+    threshold: ${DLP_UEBA_BULK_VIEW_THRESHOLD:10}           # Number of VIEW events to trigger alert
+    window-minutes: ${DLP_UEBA_BULK_VIEW_WINDOW_MINUTES:5}  # Time window in minutes
+    score-penalty: ${DLP_UEBA_BULK_VIEW_PENALTY:15}         # Points to deduct when bulk view detected
+    alert-action: ${DLP_UEBA_BULK_VIEW_ALERT_ACTION:ALERT_ADMIN}  # Action on detection: WARNING, ALERT_ADMIN, DISABLE_ACCOUNT
+
+  # Vertex AI configuration for UEBA (separate from document classification)
+  vertex:
+    project: ${LLM_UEBA_VERTEX_PROJECT:resonant-amulet-491303-n0}
+    location: ${LLM_UEBA_VERTEX_LOCATION:${GOOGLE_CLOUD_LOCATION:us-central1}}
+    # IMPORTANT: Uses gemini-2.5-flash base model for UEBA analysis.
+    # Do NOT fall back to classification's tuned endpoint.
+    # When tuning completes, the tuned endpoint ID is written to LLM_UEBA_ENDPOINT_ID via env var / ConfigMap.
+    model: ${LLM_UEBA_MODEL:gemini-2.5-flash}
+    endpoint-id: ${LLM_UEBA_ENDPOINT_ID:7479652698074120192}  # Set by auto-tuning when a UEBA-tuned endpoint becomes ready
+    # UEBA will use OAuth ADC for authentication (no API key)
+    api-key: ""
+
+  # Auto-tuning configuration for UEBA (separate from document classification tuning)
+  tuning:
+    enabled: ${LLM_UEBA_TUNING_ENABLED:true}
+    # Minimum examples before triggering tuning job (100 is the Vertex AI minimum)
+    min-examples: ${LLM_UEBA_TUNING_MIN_EXAMPLES:100}
+    gcs-bucket: ${LLM_UEBA_TUNING_GCS_BUCKET:${VERTEX_TUNING_GCS_BUCKET:resonant-amulet-491303-n0-tuning}}
+    object-prefix: tuning/ueba/  # Separate path from classification tuning
+    project-id: ${LLM_UEBA_TUNING_PROJECT_ID:resonant-amulet-491303-n0}
+    location: ${LLM_UEBA_TUNING_LOCATION:${GOOGLE_CLOUD_LOCATION:us-central1}}
+    # Base model for UEBA tuning — using gemini-2.5-flash for better performance
+    base-model: ${LLM_UEBA_TUNING_BASE_MODEL:gemini-2.5-flash}
+    # Auto-deploy tuned model to a Vertex endpoint when job succeeds
+    auto-deploy: ${LLM_UEBA_TUNING_AUTO_DEPLOY:true}
+    # Display name for the UEBA tuning endpoint (separate from classification endpoint)
+    endpoint-display-name: dlp-ueba-endpoint
+    # URL of the Python tuning service (same Cloud Run service used for classification)
+    tuning-service-url: ${LLM_UEBA_TUNING_SERVICE_URL:https://llm-tuning-service-22852288638.us-central1.run.app/start}
+    # Callback URL for the Python service to notify backend when tuning completes and endpoint is deployed.
+    # Backend will refresh its endpoint cache without restart.
+    # Format: http://backend-host:port/api/internal/endpoint-refresh
+    # Local dev: http://host.docker.internal:18080/api/internal/endpoint-refresh
+    # Cloud Run backend: https://dlp-backend-xxxx-uc.a.run.app/api/internal/endpoint-refresh
+    callback-url: ${LLM_UEBA_TUNING_CALLBACK_URL:}
+    # Cron for auto-trigger: check daily at 4am (separate from classification at 3am)
+    auto-trigger-cron: ${LLM_UEBA_TUNING_AUTO_CRON:0 0 4 * * ?}
+
+    # ── Continual training ────────────────────────────────────────────────────
+    # When true, each tuning run tunes from the previously-tuned UEBA model
+    # (found via Python service state file), creating compounding improvement.
+    # Mirrors vertex.tuning.continual-training for document classification.
+    continual-training: ${LLM_UEBA_TUNING_CONTINUAL:false}
+    # Explicit seed job ID for the very first run. Leave blank to auto-discover
+    # from the Python service state file after the first run completes.
+    seed-job-id: ${LLM_UEBA_TUNING_SEED_JOB_ID:}
+    # Path to the Python service's state file (tuning-jobs-state.json).
+    # If blank, the Java service tries common locations automatically.
+    python-state-file: ${LLM_UEBA_TUNING_PYTHON_STATE_FILE:../tuning-service-python/tuning-jobs-state.json}
+
+    # ── Version management ────────────────────────────────────────────────────
+    # Current tuned-model version label. After each successful tuning run this
+    # is bumped (v0 → v1 → v1.1 → v1.2 → v2 → …) and persisted to disk.
+    # For first use set to "v0"; the first trigger will create LLM_UEBA_v0.
+    tuned-model-version: ${LLM_UEBA_TUNED_MODEL_VERSION:v0}
+
+    # ── Cloud Scheduler (reconcile polling) ──────────────────────────────────
+    # Service account used by Cloud Scheduler for reconcile HTTP calls.
+    scheduler:
+      service-account-email: ${LLM_UEBA_TUNING_SCHEDULER_SA:${VERTEX_TUNING_SCHEDULER_SA:}}
+      time-zone: ${LLM_UEBA_TUNING_SCHEDULER_TZ:Asia/Hong_Kong}
+      # How often to poll the reconcile endpoint (default: every 2 hours)
+      reconcile-cron: ${LLM_UEBA_TUNING_RECONCILE_CRON:0 */2 * * *}

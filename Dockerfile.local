@@ -1,0 +1,29 @@
+FROM eclipse-temurin:17-jdk
+
+RUN apt-get update && apt-get install -y maven python3 && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/backend
+
+# Copy backend source
+COPY backend/pom.xml ./
+COPY backend/src ./src
+
+# Fix UTF-16/UTF-32 BOM (Windows git may corrupt files on Windows hosts)
+COPY fix_bom.py ./
+RUN python3 fix_bom.py
+
+# Build JAR (from /app/backend/)
+RUN mvn clean package -DskipTests -q
+
+# Runtime stage
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+
+COPY --from=0 /app/backend/target/platform-1.0.0.jar app.jar
+
+EXPOSE 8080
+
+ENV JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -Duser.timezone=Asia/Hong_Kong"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

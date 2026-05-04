@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dlp-postgres
+    environment:
+      POSTGRES_DB: dlp_db
+      POSTGRES_USER: dlp_user
+      POSTGRES_PASSWORD: dlp_password
+      TZ: Asia/Hong_Kong
+      PGTZ: Asia/Hong_Kong
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - dlp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dlp_user -d dlp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    image: fyp-backend:latest
+    container_name: dlp-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dlp_db
+      DB_USER: dlp_user
+      DB_PASSWORD: dlp_password
+      TZ: Asia/Hong_Kong
+      JWT_SECRET: ${JWT_SECRET}
+      DLP_SIGNATURE_KEY_SECRET: ${DLP_SIGNATURE_KEY_SECRET:-${JWT_SECRET}}
+      # Vertex AI (Gemini) config (OAuth/ADC)
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT}
+      # IMPORTANT: Vertex AI endpoints are regional (e.g. us-central1). "global" will 404 for aiplatform.googleapis.com.
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
+      # Tuned endpoint IDs (dynamic resolution preferred, static fallback optional)
+      VERTEX_ENDPOINT_ID: ${VERTEX_ENDPOINT_ID:-}
+      VERTEX_MODEL: ${VERTEX_MODEL:-gemini-2.5-flash}
+      VERTEX_TUNING_SERVICE_URL: ${VERTEX_TUNING_SERVICE_URL:-}
+      VERTEX_TUNING_PROJECT_ID: ${VERTEX_TUNING_PROJECT_ID:-}
+      VERTEX_TUNING_LOCATION: ${VERTEX_TUNING_LOCATION:-us-central1}
+      VERTEX_TUNING_CONTINUAL_TRAINING: ${VERTEX_TUNING_CONTINUAL_TRAINING:-true}
+      VERTEX_TUNING_AUTO_DEPLOY: ${VERTEX_TUNING_AUTO_DEPLOY:-true}
+      VERTEX_TUNING_ENDPOINT_DISPLAY_NAME: ${VERTEX_TUNING_ENDPOINT_DISPLAY_NAME:-dlp-classification-endpoint}
+      VERTEX_TUNING_SEED_JOB_ID: ${VERTEX_TUNING_SEED_JOB_ID:-}
+      # LLM UEBA (separate tuned endpoint - dynamic resolution preferred)
+      LLM_UEBA_ENDPOINT_ID: ${LLM_UEBA_ENDPOINT_ID:-}
+      # Gemini API / Vertex API key mode (optional). If set, backend can call generateContent with ?key=...
+      VERTEX_API_KEY: ${VERTEX_API_KEY:-}
+      API_KEY: ${API_KEY:-}
+      # ADC via Service Account Key (recommended for Docker)
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/sa.json
+      # Blind Watermark (s2c-blind-watermark) - mounted via volumes below
+      BLIND_WATERMARK_SCRIPT_DIR: /app/s2c-blind-watermark
+      BLIND_WATERMARK_PYTHON_EXE: python3
+      # Tesseract OCR (installed in image; tessdata path set in Dockerfile)
+      OCR_TESSERACT_ENABLED: ${OCR_TESSERACT_ENABLED:-true}
+      OCR_TESSERACT_DATAPATH: /usr/share/tessdata
+      OCR_TESSERACT_LANGUAGE: ${OCR_TESSERACT_LANGUAGE:-eng}
+      # Virus scanning pipeline (fail-closed). ClamAV can be enabled by env.
+      DLP_VIRUS_SCAN_ENABLED: ${DLP_VIRUS_SCAN_ENABLED:-true}
+      DLP_VIRUS_SCAN_CLAMAV_ENABLED: ${DLP_VIRUS_SCAN_CLAMAV_ENABLED:-false}
+      DLP_VIRUS_SCAN_CLAMAV_HOST: ${DLP_VIRUS_SCAN_CLAMAV_HOST:-clamav}
+      DLP_VIRUS_SCAN_CLAMAV_PORT: ${DLP_VIRUS_SCAN_CLAMAV_PORT:-3310}
+      DLP_VIRUS_SCAN_CLAMAV_TIMEOUT_MS: ${DLP_VIRUS_SCAN_CLAMAV_TIMEOUT_MS:-10000}
+      FILE_STORAGE_LOCATION: /app/uploads
+      DLP_BLOCKCHAIN_ENABLED: ${DLP_BLOCKCHAIN_ENABLED:-false}
+      # In Docker, localhost points to container itself. For local Hardhat/Anvil on host, use host.docker.internal.
+      DLP_BLOCKCHAIN_RPC_URL: ${DLP_BLOCKCHAIN_RPC_URL:-http://host.docker.internal:8545}
+      DLP_BLOCKCHAIN_PRIVATE_KEY: ${DLP_BLOCKCHAIN_PRIVATE_KEY:-}
+      DLP_BLOCKCHAIN_CHAIN_ID: ${DLP_BLOCKCHAIN_CHAIN_ID:-80002}
+      DLP_TIMESTAMP_TSA_URL: ${DLP_TIMESTAMP_TSA_URL:-https://freetsa.org/tsr}
+      # Key Management (for document encryption at rest)
+      DLP_KEYMGMT_ENABLED: ${DLP_KEYMGMT_ENABLED:-true}
+      DLP_KEYMGMT_MODE: ${DLP_KEYMGMT_MODE:-USER_SELF_CUSTODY}
+      DLP_KEYMGMT_PBKDF2_ITERATIONS: ${DLP_KEYMGMT_PBKDF2_ITERATIONS:-100000}
+      DLP_KEYMGMT_ACTIVE_KEY_ID: ${DLP_KEYMGMT_ACTIVE_KEY_ID:-v1}
+      DLP_KEYMGMT_KEYRING: ${DLP_KEYMGMT_KEYRING:-}
+      DLP_KEYMGMT_MASTER_SECRET: ${DLP_KEYMGMT_MASTER_SECRET:-}
+    ports:
+      - "18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dlp-network
+    volumes:
+      - ./backend/logs:/app/logs
+      # Persist uploaded documents to host so files survive container rebuilds/restarts
+      - ./uploads:/app/uploads
+      # Mount service account key into container (DO NOT commit this file)
+      - type: bind
+        source: ./secrets
+        target: /app/secrets
+        read_only: true
+      # Persist PKI CA materials (DO NOT commit this folder)
+      - ./secrets/pki:/app/pki
+      # Mount s2c-blind-watermark scripts for blind watermark embedding
+      - ./backend/s2c-blind-watermark:/app/s2c-blind-watermark
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:latest
+    container_name: dlp-clamav
+    profiles: ["security"]
+    ports:
+      - "3310:3310"
+    networks:
+      - dlp-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dlp-frontend
+    ports:
+      - "50000:3000"
+    depends_on:
+      - backend
+    networks:
+      - dlp-network
+    environment:
+      VITE_API_BASE_URL: http://localhost:18080/api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  dlp-network:
+    driver: bridge
